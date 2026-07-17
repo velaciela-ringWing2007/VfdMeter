@@ -2,6 +2,16 @@ namespace VfdMeter;
 
 internal sealed class OverlayForm : Form
 {
+    private const int WmDisplayChange = 0x007E;
+    private const int WmSettingChange = 0x001A;
+    private const int WmNcHitTest = 0x0084;
+    private const int WmEnterSizeMove = 0x0231;
+    private const int WmExitSizeMove = 0x0232;
+    private const int WmDpiChanged = 0x02E0;
+    private const int SpiSetWorkArea = 0x002F;
+    private const int HtClient = 1;
+    private const int HtCaption = 2;
+
     private static readonly Color NormalColor = Color.FromArgb(35, 235, 210);
     private static readonly Color WarningColor = Color.FromArgb(255, 165, 45);
     private static readonly Color CriticalColor = Color.FromArgb(255, 65, 65);
@@ -10,6 +20,9 @@ internal sealed class OverlayForm : Form
     private int _memoryUsage;
     private double _receivedBytesPerSecond;
     private double _sentBytesPerSecond;
+    private bool _initialPlacementCompleted;
+    private bool _userMoved;
+    private bool _isAdjustingBounds;
 
     public OverlayForm()
     {
@@ -24,10 +37,9 @@ internal sealed class OverlayForm : Form
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
         TopMost = true;
-
-        var workingArea = Screen.PrimaryScreen?.WorkingArea ?? SystemInformation.WorkingArea;
-        Location = new Point(workingArea.Right - Width - 12, workingArea.Bottom - Height - 12);
     }
+
+    public Point CurrentPosition => Location;
 
     public void SetUsage(
         int cpuUsage,
@@ -58,6 +70,114 @@ internal sealed class OverlayForm : Form
         DrawPart(e.Graphics, " NET ", NormalColor, font, flags, ref x, y);
         DrawPart(e.Graphics, $"↓{NetworkSpeedFormatter.Format(_receivedBytesPerSecond)}", NormalColor, font, flags, ref x, y);
         DrawPart(e.Graphics, $" ↑{NetworkSpeedFormatter.Format(_sentBytesPerSecond)}", NormalColor, font, flags, ref x, y);
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        PlaceInitially();
+        _initialPlacementCompleted = true;
+    }
+
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+
+        if (_initialPlacementCompleted && !_isAdjustingBounds)
+        {
+            KeepFullyInsideCurrentScreen();
+        }
+    }
+
+    protected override void WndProc(ref Message message)
+    {
+        base.WndProc(ref message);
+
+        switch (message.Msg)
+        {
+            case WmNcHitTest when message.Result == (nint)HtClient:
+                message.Result = (nint)HtCaption;
+                break;
+
+            case WmEnterSizeMove:
+                _userMoved = true;
+                break;
+
+            case WmExitSizeMove:
+                KeepPartiallyVisible();
+                break;
+
+            case WmDisplayChange:
+            case WmDpiChanged:
+                HandleEnvironmentChange();
+                break;
+
+            case WmSettingChange when message.WParam == (nint)SpiSetWorkArea:
+                HandleEnvironmentChange();
+                break;
+        }
+    }
+
+    private void PlaceInitially()
+    {
+        var workingArea = Screen.PrimaryScreen?.WorkingArea ?? SystemInformation.WorkingArea;
+        var dpiScale = DeviceDpi / 96d;
+        SetBoundsSafely(WindowPlacement.GetInitialBounds(
+            Size,
+            workingArea,
+            dpiScale));
+    }
+
+    private void HandleEnvironmentChange()
+    {
+        if (!_initialPlacementCompleted)
+        {
+            return;
+        }
+
+        if (_userMoved)
+        {
+            KeepFullyInsideCurrentScreen();
+        }
+        else
+        {
+            PlaceInitially();
+        }
+    }
+
+    private void KeepFullyInsideCurrentScreen()
+    {
+        var workingArea = Screen.FromRectangle(Bounds).WorkingArea;
+        SetBoundsSafely(WindowPlacement.ClampFullyVisible(Bounds, workingArea));
+    }
+
+    private void KeepPartiallyVisible()
+    {
+        var workingArea = Screen.FromRectangle(Bounds).WorkingArea;
+        var minimumVisiblePixels = Math.Max(1, (int)Math.Round(
+            WindowPlacement.MinimumVisibleLength * DeviceDpi / 96d));
+        SetBoundsSafely(WindowPlacement.ClampPartiallyVisible(
+            Bounds,
+            workingArea,
+            minimumVisiblePixels));
+    }
+
+    private void SetBoundsSafely(Rectangle bounds)
+    {
+        if (Bounds == bounds)
+        {
+            return;
+        }
+
+        _isAdjustingBounds = true;
+        try
+        {
+            Bounds = bounds;
+        }
+        finally
+        {
+            _isAdjustingBounds = false;
+        }
     }
 
     private static void DrawPart(
