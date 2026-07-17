@@ -4,6 +4,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
 {
     private readonly SystemMonitor _monitor;
     private readonly NetworkMonitor _networkMonitor;
+    private readonly DiskMonitor _diskMonitor;
     private readonly OverlayForm _overlay;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly ContextMenuStrip _menu;
@@ -18,6 +19,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
     {
         _monitor = new SystemMonitor();
         _networkMonitor = new NetworkMonitor();
+        _diskMonitor = new DiskMonitor();
 
         _menu = new ContextMenuStrip();
         _showMenuItem = new ToolStripMenuItem("表示", null, (_, _) => ShowOverlay());
@@ -74,6 +76,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
             _overlay.Dispose();
             _menu.Dispose();
             _networkMonitor.Dispose();
+            _diskMonitor.Dispose();
             _monitor.Dispose();
         }
 
@@ -87,7 +90,8 @@ internal sealed class VfdApplicationContext : ApplicationContext
             _monitor.GetCpuUsage(),
             _monitor.GetMemoryUsage(),
             networkSpeed.ReceivedBytesPerSecond,
-            networkSpeed.SentBytesPerSecond);
+            networkSpeed.SentBytesPerSecond,
+            _diskMonitor.GetActivePercentage());
     }
 
     private void ShowOverlay()

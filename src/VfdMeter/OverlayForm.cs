@@ -6,6 +6,7 @@ internal sealed class OverlayForm : Form
     private const int WmSettingChange = 0x001A;
     private const int WmMouseActivate = 0x0021;
     private const int WmContextMenu = 0x007B;
+    private const int WmNcRightButtonUp = 0x00A5;
     private const int WmNcHitTest = 0x0084;
     private const int WmEnterSizeMove = 0x0231;
     private const int WmExitSizeMove = 0x0232;
@@ -29,6 +30,7 @@ internal sealed class OverlayForm : Form
     private int _memoryUsage;
     private double _receivedBytesPerSecond;
     private double _sentBytesPerSecond;
+    private int? _diskUsage;
     private bool _initialPlacementCompleted;
     private bool _userMoved;
     private bool _isAdjustingBounds;
@@ -71,12 +73,14 @@ internal sealed class OverlayForm : Form
         int cpuUsage,
         int memoryUsage,
         double receivedBytesPerSecond,
-        double sentBytesPerSecond)
+        double sentBytesPerSecond,
+        int? diskUsage)
     {
         _cpuUsage = cpuUsage;
         _memoryUsage = memoryUsage;
         _receivedBytesPerSecond = receivedBytesPerSecond;
         _sentBytesPerSecond = sentBytesPerSecond;
+        _diskUsage = diskUsage;
         Invalidate();
     }
 
@@ -94,8 +98,17 @@ internal sealed class OverlayForm : Form
         DrawPart(e.Graphics, " MEM ", NormalColor, font, flags, ref x, y);
         DrawPart(e.Graphics, $"{_memoryUsage:000}%", GetUsageColor(_memoryUsage), font, flags, ref x, y);
         DrawPart(e.Graphics, " NET ", NormalColor, font, flags, ref x, y);
-        DrawPart(e.Graphics, $"↓{NetworkSpeedFormatter.Format(_receivedBytesPerSecond)}", NormalColor, font, flags, ref x, y);
-        DrawPart(e.Graphics, $" ↑{NetworkSpeedFormatter.Format(_sentBytesPerSecond)}", NormalColor, font, flags, ref x, y);
+        DrawPart(e.Graphics, $"↓{MetricFormatter.FormatNetworkSpeed(_receivedBytesPerSecond)}", NormalColor, font, flags, ref x, y);
+        DrawPart(e.Graphics, $" ↑{MetricFormatter.FormatNetworkSpeed(_sentBytesPerSecond)}", NormalColor, font, flags, ref x, y);
+        DrawPart(e.Graphics, " DSK ", NormalColor, font, flags, ref x, y);
+        DrawPart(
+            e.Graphics,
+            _diskUsage is int diskUsage ? $"{diskUsage:000}%" : "---",
+            _diskUsage is int usage ? GetUsageColor(usage) : NormalColor,
+            font,
+            flags,
+            ref x,
+            y);
     }
 
     protected override void OnShown(EventArgs e)
@@ -126,7 +139,7 @@ internal sealed class OverlayForm : Form
 
     protected override void WndProc(ref Message message)
     {
-        if (message.Msg == WmContextMenu)
+        if (message.Msg is WmContextMenu or WmNcRightButtonUp)
         {
             ShowContextMenu(message.LParam);
             return;
