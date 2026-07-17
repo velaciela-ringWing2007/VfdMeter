@@ -19,6 +19,7 @@ internal static class NativeTaskbarApi
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoActivate = 0x0010;
     private static readonly nint HwndTopmost = new(-1);
+    private static readonly nint HwndNotTopmost = new(-2);
 
     public static bool TryGetTaskbarPosition(out TaskbarPosition position)
     {
@@ -53,6 +54,12 @@ internal static class NativeTaskbarApi
         RegisterWindowMessage("TaskbarCreated");
 
     public static void ApplyTopmostWithoutActivation(nint windowHandle)
+        => SetTopmostState(windowHandle, HwndTopmost);
+
+    public static void ClearTopmostWithoutActivation(nint windowHandle)
+        => SetTopmostState(windowHandle, HwndNotTopmost);
+
+    private static void SetTopmostState(nint windowHandle, nint insertAfter)
     {
         if (windowHandle == 0)
         {
@@ -61,7 +68,7 @@ internal static class NativeTaskbarApi
 
         _ = SetWindowPos(
             windowHandle,
-            HwndTopmost,
+            insertAfter,
             0,
             0,
             0,

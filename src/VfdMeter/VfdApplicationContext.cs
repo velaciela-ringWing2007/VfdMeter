@@ -5,6 +5,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
     private readonly SystemMonitor _monitor;
     private readonly NetworkMonitor _networkMonitor;
     private readonly DiskMonitor _diskMonitor;
+    private readonly ForegroundWindowMonitor _foregroundWindowMonitor;
     private readonly OverlayForm _overlay;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly ContextMenuStrip _menu;
@@ -13,6 +14,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _showMenuItem;
     private readonly ToolStripMenuItem _hideMenuItem;
     private readonly ToolStripMenuItem _resetPositionMenuItem;
+    private readonly ToolStripMenuItem _alwaysOnTopMenuItem;
     private bool _disposed;
 
     public VfdApplicationContext()
@@ -24,6 +26,10 @@ internal sealed class VfdApplicationContext : ApplicationContext
         _menu = new ContextMenuStrip();
         _showMenuItem = new ToolStripMenuItem("表示", null, (_, _) => ShowOverlay());
         _hideMenuItem = new ToolStripMenuItem("非表示", null, (_, _) => HideOverlay());
+        _alwaysOnTopMenuItem = new ToolStripMenuItem(
+            "常に最前面",
+            null,
+            (_, _) => ToggleAlwaysOnTop());
         _resetPositionMenuItem = new ToolStripMenuItem(
             "タスクバー位置へ戻す",
             null,
@@ -31,6 +37,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
         _menu.Items.AddRange([
             _showMenuItem,
             _hideMenuItem,
+            _alwaysOnTopMenuItem,
             _resetPositionMenuItem
         ]);
         _menu.Items.Add(new ToolStripSeparator());
@@ -54,6 +61,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
 
         UpdateUsage();
         _overlay.Show();
+        _foregroundWindowMonitor = new ForegroundWindowMonitor(RestoreOverlayTopmost);
         _timer.Start();
     }
 
@@ -69,6 +77,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
         {
             _disposed = true;
             _timer.Dispose();
+            _foregroundWindowMonitor.Dispose();
             _notifyIcon.Visible = false;
             _notifyIcon.ContextMenuStrip = null;
             _notifyIcon.Dispose();
@@ -102,6 +111,9 @@ internal sealed class VfdApplicationContext : ApplicationContext
 
     private void HideOverlay() => _overlay.Hide();
 
+    private void ToggleAlwaysOnTop() =>
+        _overlay.SetAlwaysOnTop(!_overlay.AlwaysOnTopEnabled);
+
     private void ResetOverlayPosition()
     {
         _overlay.ResetToTaskbarPosition();
@@ -115,5 +127,30 @@ internal sealed class VfdApplicationContext : ApplicationContext
         _showMenuItem.Enabled = !isVisible;
         _hideMenuItem.Enabled = isVisible;
         _resetPositionMenuItem.Enabled = isVisible;
+        _alwaysOnTopMenuItem.Checked = _overlay.AlwaysOnTopEnabled;
+    }
+
+    private void RestoreOverlayTopmost()
+    {
+        if (_disposed || !_overlay.Visible || !_overlay.AlwaysOnTopEnabled)
+        {
+            return;
+        }
+
+        if (_overlay.InvokeRequired)
+        {
+            try
+            {
+                _overlay.BeginInvoke(RestoreOverlayTopmost);
+            }
+            catch (InvalidOperationException)
+            {
+                // The form is shutting down.
+            }
+
+            return;
+        }
+
+        _overlay.ApplyTopmost();
     }
 }

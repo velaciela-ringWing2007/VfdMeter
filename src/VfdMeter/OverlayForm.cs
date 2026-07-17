@@ -34,6 +34,7 @@ internal sealed class OverlayForm : Form
     private bool _initialPlacementCompleted;
     private bool _userMoved;
     private bool _isAdjustingBounds;
+    private bool _alwaysOnTop = true;
     private readonly uint _taskbarCreatedMessage;
     private readonly ContextMenuStrip _sharedContextMenu;
 
@@ -55,6 +56,7 @@ internal sealed class OverlayForm : Form
     }
 
     public Point CurrentPosition => Location;
+    public bool AlwaysOnTopEnabled => _alwaysOnTop;
 
     protected override bool ShowWithoutActivation => true;
 
@@ -66,8 +68,33 @@ internal sealed class OverlayForm : Form
         ApplyTopmost();
     }
 
-    public void ApplyTopmost() =>
-        NativeTaskbarApi.ApplyTopmostWithoutActivation(Handle);
+    public void ApplyTopmost()
+    {
+        if (_alwaysOnTop && IsHandleCreated)
+        {
+            NativeTaskbarApi.ApplyTopmostWithoutActivation(Handle);
+        }
+    }
+
+    public void SetAlwaysOnTop(bool enabled)
+    {
+        _alwaysOnTop = enabled;
+        TopMost = enabled;
+
+        if (!IsHandleCreated)
+        {
+            return;
+        }
+
+        if (enabled)
+        {
+            NativeTaskbarApi.ApplyTopmostWithoutActivation(Handle);
+        }
+        else
+        {
+            NativeTaskbarApi.ClearTopmostWithoutActivation(Handle);
+        }
+    }
 
     public void SetUsage(
         int cpuUsage,
