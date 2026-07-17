@@ -5,6 +5,7 @@ internal sealed class OverlayForm : Form
     private const int WmDisplayChange = 0x007E;
     private const int WmSettingChange = 0x001A;
     private const int WmMouseActivate = 0x0021;
+    private const int WmContextMenu = 0x007B;
     private const int WmNcHitTest = 0x0084;
     private const int WmEnterSizeMove = 0x0231;
     private const int WmExitSizeMove = 0x0232;
@@ -16,9 +17,9 @@ internal sealed class OverlayForm : Form
     private const string DisplayFontFamily = "Consolas";
     private const float DisplayFontSize = 15f;
     private const int LeftPadding = 10;
-    private const int RightPadding = 12;
-    private const string MaximumDisplayText = "CPU 100% MEM 100% NET ↓999.9G ↑999.9G";
-    private const string AdditionalWidthText = "0000";
+    private const int RightPadding = 10;
+    private const int RightSafetyMargin = 12;
+    private const string MaximumDisplayText = "CPU 100% MEM 100% NET ↓999.9G ↑999.9G DSK 100%";
 
     private static readonly Color NormalColor = Color.FromArgb(35, 235, 210);
     private static readonly Color WarningColor = Color.FromArgb(255, 165, 45);
@@ -32,9 +33,11 @@ internal sealed class OverlayForm : Form
     private bool _userMoved;
     private bool _isAdjustingBounds;
     private readonly uint _taskbarCreatedMessage;
+    private readonly ContextMenuStrip _sharedContextMenu;
 
-    public OverlayForm()
+    public OverlayForm(ContextMenuStrip sharedContextMenu)
     {
+        _sharedContextMenu = sharedContextMenu ?? throw new ArgumentNullException(nameof(sharedContextMenu));
         _taskbarCreatedMessage = NativeTaskbarApi.RegisterTaskbarCreatedMessage();
         AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = Color.Black;
@@ -123,6 +126,12 @@ internal sealed class OverlayForm : Form
 
     protected override void WndProc(ref Message message)
     {
+        if (message.Msg == WmContextMenu)
+        {
+            ShowContextMenu(message.LParam);
+            return;
+        }
+
         if (message.Msg == WmMouseActivate)
         {
             message.Result = (nint)MaNoActivate;
@@ -221,6 +230,11 @@ internal sealed class OverlayForm : Form
 
     private void UpdateDisplayWidth()
     {
+        ClientSize = new Size(CalculateRequiredWidth(), ClientSize.Height);
+    }
+
+    private int CalculateRequiredWidth()
+    {
         using var font = CreateDisplayFont();
         using var graphics = CreateGraphics();
         const TextFormatFlags flags = TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
@@ -230,14 +244,27 @@ internal sealed class OverlayForm : Form
             font,
             Size.Empty,
             flags).Width;
-        var extraWidth = TextRenderer.MeasureText(
-            graphics,
-            AdditionalWidthText,
-            font,
-            Size.Empty,
-            flags).Width;
         var horizontalPadding = ScaleLogicalPixels(LeftPadding) + ScaleLogicalPixels(RightPadding);
-        ClientSize = new Size(contentWidth + extraWidth + horizontalPadding, ClientSize.Height);
+        var safetyMargin = ScaleLogicalPixels(RightSafetyMargin);
+        return contentWidth + horizontalPadding + safetyMargin;
+    }
+
+    private void ShowContextMenu(nint coordinates)
+    {
+        Point screenLocation;
+        if (coordinates == -1)
+        {
+            screenLocation = PointToScreen(new Point(ClientSize.Width / 2, ClientSize.Height / 2));
+        }
+        else
+        {
+            var packedCoordinates = (long)coordinates;
+            screenLocation = new Point(
+                unchecked((short)(packedCoordinates & 0xFFFF)),
+                unchecked((short)((packedCoordinates >> 16) & 0xFFFF)));
+        }
+
+        _sharedContextMenu.Show(screenLocation);
     }
 
     private int ScaleLogicalPixels(int pixels) =>

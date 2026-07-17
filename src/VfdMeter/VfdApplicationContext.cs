@@ -9,20 +9,33 @@ internal sealed class VfdApplicationContext : ApplicationContext
     private readonly ContextMenuStrip _menu;
     private readonly NotifyIcon _notifyIcon;
     private readonly Icon _notifyIconImage;
+    private readonly ToolStripMenuItem _showMenuItem;
+    private readonly ToolStripMenuItem _hideMenuItem;
+    private readonly ToolStripMenuItem _resetPositionMenuItem;
     private bool _disposed;
 
     public VfdApplicationContext()
     {
         _monitor = new SystemMonitor();
         _networkMonitor = new NetworkMonitor();
-        _overlay = new OverlayForm();
 
         _menu = new ContextMenuStrip();
-        _menu.Items.Add("表示", null, (_, _) => ShowOverlay());
-        _menu.Items.Add("非表示", null, (_, _) => _overlay.Hide());
-        _menu.Items.Add("タスクバー位置へ戻す", null, (_, _) => ResetOverlayPosition());
+        _showMenuItem = new ToolStripMenuItem("表示", null, (_, _) => ShowOverlay());
+        _hideMenuItem = new ToolStripMenuItem("非表示", null, (_, _) => HideOverlay());
+        _resetPositionMenuItem = new ToolStripMenuItem(
+            "タスクバー位置へ戻す",
+            null,
+            (_, _) => ResetOverlayPosition());
+        _menu.Items.AddRange([
+            _showMenuItem,
+            _hideMenuItem,
+            _resetPositionMenuItem
+        ]);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add("終了", null, (_, _) => ExitThread());
+        _menu.Opening += (_, _) => UpdateMenuState();
+
+        _overlay = new OverlayForm(_menu);
 
         _notifyIconImage = (Icon)SystemIcons.Application.Clone();
         _notifyIcon = new NotifyIcon
@@ -55,10 +68,11 @@ internal sealed class VfdApplicationContext : ApplicationContext
             _disposed = true;
             _timer.Dispose();
             _notifyIcon.Visible = false;
+            _notifyIcon.ContextMenuStrip = null;
             _notifyIcon.Dispose();
             _notifyIconImage.Dispose();
-            _menu.Dispose();
             _overlay.Dispose();
+            _menu.Dispose();
             _networkMonitor.Dispose();
             _monitor.Dispose();
         }
@@ -82,10 +96,20 @@ internal sealed class VfdApplicationContext : ApplicationContext
         _overlay.ApplyTopmost();
     }
 
+    private void HideOverlay() => _overlay.Hide();
+
     private void ResetOverlayPosition()
     {
         _overlay.ResetToTaskbarPosition();
         _overlay.Show();
         _overlay.ApplyTopmost();
+    }
+
+    private void UpdateMenuState()
+    {
+        var isVisible = _overlay.Visible;
+        _showMenuItem.Enabled = !isVisible;
+        _hideMenuItem.Enabled = isVisible;
+        _resetPositionMenuItem.Enabled = isVisible;
     }
 }
