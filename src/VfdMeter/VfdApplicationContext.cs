@@ -20,6 +20,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
         _menu = new ContextMenuStrip();
         _menu.Items.Add("表示", null, (_, _) => ShowOverlay());
         _menu.Items.Add("非表示", null, (_, _) => _overlay.Hide());
+        _menu.Items.Add("タスクバー位置へ戻す", null, (_, _) => ResetOverlayPosition());
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add("終了", null, (_, _) => ExitThread());
 
@@ -78,6 +79,13 @@ internal sealed class VfdApplicationContext : ApplicationContext
     private void ShowOverlay()
     {
         _overlay.Show();
-        _overlay.BringToFront();
+        _overlay.ApplyTopmost();
+    }
+
+    private void ResetOverlayPosition()
+    {
+        _overlay.ResetToTaskbarPosition();
+        _overlay.Show();
+        _overlay.ApplyTopmost();
     }
 }
