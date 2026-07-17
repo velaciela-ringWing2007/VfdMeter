@@ -8,12 +8,14 @@ internal sealed class OverlayForm : Form
 
     private int _cpuUsage;
     private int _memoryUsage;
+    private double _receivedBytesPerSecond;
+    private double _sentBytesPerSecond;
 
     public OverlayForm()
     {
         AutoScaleMode = AutoScaleMode.Dpi;
         BackColor = Color.Black;
-        ClientSize = new Size(268, 44);
+        ClientSize = new Size(468, 44);
         ControlBox = false;
         FormBorderStyle = FormBorderStyle.None;
         MaximizeBox = false;
@@ -27,10 +29,16 @@ internal sealed class OverlayForm : Form
         Location = new Point(workingArea.Right - Width - 12, workingArea.Bottom - Height - 12);
     }
 
-    public void SetUsage(int cpuUsage, int memoryUsage)
+    public void SetUsage(
+        int cpuUsage,
+        int memoryUsage,
+        double receivedBytesPerSecond,
+        double sentBytesPerSecond)
     {
         _cpuUsage = cpuUsage;
         _memoryUsage = memoryUsage;
+        _receivedBytesPerSecond = receivedBytesPerSecond;
+        _sentBytesPerSecond = sentBytesPerSecond;
         Invalidate();
     }
 
@@ -47,6 +55,9 @@ internal sealed class OverlayForm : Form
         DrawPart(e.Graphics, $"{_cpuUsage:000}%", GetUsageColor(_cpuUsage), font, flags, ref x, y);
         DrawPart(e.Graphics, " MEM ", NormalColor, font, flags, ref x, y);
         DrawPart(e.Graphics, $"{_memoryUsage:000}%", GetUsageColor(_memoryUsage), font, flags, ref x, y);
+        DrawPart(e.Graphics, " NET ", NormalColor, font, flags, ref x, y);
+        DrawPart(e.Graphics, $"↓{NetworkSpeedFormatter.Format(_receivedBytesPerSecond)}", NormalColor, font, flags, ref x, y);
+        DrawPart(e.Graphics, $" ↑{NetworkSpeedFormatter.Format(_sentBytesPerSecond)}", NormalColor, font, flags, ref x, y);
     }
 
     private static void DrawPart(

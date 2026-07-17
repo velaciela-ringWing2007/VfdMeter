@@ -3,6 +3,7 @@ namespace VfdMeter;
 internal sealed class VfdApplicationContext : ApplicationContext
 {
     private readonly SystemMonitor _monitor;
+    private readonly NetworkMonitor _networkMonitor;
     private readonly OverlayForm _overlay;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly ContextMenuStrip _menu;
@@ -13,6 +14,7 @@ internal sealed class VfdApplicationContext : ApplicationContext
     public VfdApplicationContext()
     {
         _monitor = new SystemMonitor();
+        _networkMonitor = new NetworkMonitor();
         _overlay = new OverlayForm();
 
         _menu = new ContextMenuStrip();
@@ -56,14 +58,22 @@ internal sealed class VfdApplicationContext : ApplicationContext
             _notifyIconImage.Dispose();
             _menu.Dispose();
             _overlay.Dispose();
+            _networkMonitor.Dispose();
             _monitor.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
-    private void UpdateUsage() =>
-        _overlay.SetUsage(_monitor.GetCpuUsage(), _monitor.GetMemoryUsage());
+    private void UpdateUsage()
+    {
+        var networkSpeed = _networkMonitor.GetSpeed();
+        _overlay.SetUsage(
+            _monitor.GetCpuUsage(),
+            _monitor.GetMemoryUsage(),
+            networkSpeed.ReceivedBytesPerSecond,
+            networkSpeed.SentBytesPerSecond);
+    }
 
     private void ShowOverlay()
     {
