@@ -8,8 +8,4 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.10" />
-  </ItemGroup>
-
 </Project>

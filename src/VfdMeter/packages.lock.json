@@ -1,13 +1,6 @@
 {
   "version": 1,
   "dependencies": {
-    "net10.0-windows7.0": {
-      "System.Diagnostics.PerformanceCounter": {
-        "type": "Direct",
-        "requested": "[10.0.10, )",
-        "resolved": "10.0.10",
-        "contentHash": "ScyOvCu1hEAz8YHdUSFdppPJK8D2kmHCeAEKGP8QcUuyzfEUQ74GZwl12e7ks0SLYVqNuu1LnGQv46Kx89QkKA=="
-      }
-    }
+    "net10.0-windows7.0": {}
   }
 }
